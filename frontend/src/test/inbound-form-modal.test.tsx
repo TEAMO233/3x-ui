@@ -105,6 +105,10 @@ describe('InboundFormModal', () => {
 
   it('field structure differs per protocol (not a vacuous snapshot loop)', async () => {
     renderModal();
+    const recommendSwitch = document.querySelector('.inbound-recommend-toggle .ant-switch');
+    if (!recommendSwitch) throw new Error('Recommend toggle not found');
+    fireEvent.click(recommendSwitch);
+    await waitFor(() => expect(document.getElementById('protocol')).toBeTruthy());
     const protocols = listSelectOptions('protocol');
     expect(protocols.length).toBeGreaterThan(3);
 

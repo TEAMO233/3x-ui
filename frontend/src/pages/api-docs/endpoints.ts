@@ -172,6 +172,30 @@ export const sections: readonly Section[] = [
           '{\n  "success": true,\n  "obj": {\n    "deleted": 2,\n    "skipped": [\n      { "id": 3, "reason": "..." }\n    ]\n  }\n}',
       },
       {
+        method: 'GET',
+        path: '/panel/api/inbounds/:id/orphanCount',
+        summary:
+          'Count clients that would become unattached if this inbound were deleted. Used by the delete confirmation before optionally purging orphaned clients.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'Inbound ID.' }],
+        response: '{\n  "success": true,\n  "obj": 3\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/inbounds/orphanCountBatch',
+        summary:
+          'Count clients that would become unattached if the selected inbounds were deleted together. Used by bulk delete confirmation before optionally purging orphaned clients.',
+        params: [
+          {
+            name: 'ids',
+            in: 'body (json)',
+            type: 'integer[]',
+            desc: 'Inbound IDs to simulate deleting.',
+          },
+        ],
+        body: '{\n  "ids": [1, 2, 3]\n}',
+        response: '{\n  "success": true,\n  "obj": 5\n}',
+      },
+      {
         method: 'POST',
         path: '/panel/api/inbounds/update/:id',
         summary:
@@ -438,6 +462,13 @@ export const sections: readonly Section[] = [
         path: '/panel/api/server/getNewUUID',
         summary: 'Generate a fresh UUID v4. Convenience helper for client IDs.',
         response: '{\n  "success": true,\n  "obj": "550e8400-e29b-41d4-a716-446655440000"\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/server/getCommonSubId',
+        summary:
+          'Return the shared subscription ID used by one-click inbound templates. Lazily creates and stores it on first use.',
+        response: '{\n  "success": true,\n  "obj": "abcd1234efgh5678"\n}',
       },
       {
         method: 'GET',

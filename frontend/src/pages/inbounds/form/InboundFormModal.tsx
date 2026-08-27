@@ -378,8 +378,13 @@ export default function InboundFormModal({
     return { certFile, keyFile, domain };
   };
 
-  const fetchRealityKeypair = async (): Promise<{ privateKey: string; publicKey: string } | null> => {
-    const msg = await HttpUtil.get('/panel/api/server/getNewX25519Cert', undefined, { silent: true });
+  const fetchRealityKeypair = async (): Promise<{
+    privateKey: string;
+    publicKey: string;
+  } | null> => {
+    const msg = await HttpUtil.get('/panel/api/server/getNewX25519Cert', undefined, {
+      silent: true,
+    });
     if (!msg?.success || !msg.obj) return null;
     return msg.obj as { privateKey: string; publicKey: string };
   };
@@ -430,9 +435,7 @@ export default function InboundFormModal({
       const commonSubId = await fetchCommonSubId();
       const targets = INBOUND_PRESETS.filter((preset) => !preset.needsDomain || hasCertificate);
       const usedPorts = new Set(
-        dbInbounds
-          .filter((row) => (row.nodeId ?? null) === targetNodeId)
-          .map((row) => row.port),
+        dbInbounds.filter((row) => (row.nodeId ?? null) === targetNodeId).map((row) => row.port),
       );
       let created = 0;
       const failed: string[] = [];
@@ -618,7 +621,8 @@ export default function InboundFormModal({
     }
 
     if (mode === 'add') {
-      const recommended = INBOUND_PRESETS.find((preset) => preset.recommended) ?? INBOUND_PRESETS[0];
+      const recommended =
+        INBOUND_PRESETS.find((preset) => preset.recommended) ?? INBOUND_PRESETS[0];
       if (recommended) void applyPreset(recommended);
     }
 
@@ -1397,17 +1401,19 @@ export default function InboundFormModal({
                   forceRender: true,
                 },
                 ...(!simpleMode &&
-                (([
-                  Protocols.VLESS,
-                  Protocols.SHADOWSOCKS,
-                  Protocols.HTTP,
-                  Protocols.MIXED,
-                  Protocols.TUNNEL,
-                  Protocols.TUN,
-                  Protocols.WIREGUARD,
-                  Protocols.MTPROTO,
-                  Protocols.AMNEZIAWG,
-                ] as string[]).includes(protocol) ||
+                ((
+                  [
+                    Protocols.VLESS,
+                    Protocols.SHADOWSOCKS,
+                    Protocols.HTTP,
+                    Protocols.MIXED,
+                    Protocols.TUNNEL,
+                    Protocols.TUN,
+                    Protocols.WIREGUARD,
+                    Protocols.MTPROTO,
+                    Protocols.AMNEZIAWG,
+                  ] as string[]
+                ).includes(protocol) ||
                   isFallbackHost)
                   ? [
                       {

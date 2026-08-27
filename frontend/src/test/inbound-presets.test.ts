@@ -81,10 +81,19 @@ describe('inbound presets', () => {
 
   it('applyPresetSecrets injects panel cert + domain for a TLS preset', () => {
     const row = getPreset('trojan-tls')!.build();
-    applyPresetSecrets(row, { certFile: '/c/fullchain.pem', keyFile: '/c/privkey.pem', domain: 'my.host' });
-    const tls = (row.streamSettings as { tlsSettings: {
-      serverName: string; certificates: { certificateFile: string; keyFile: string }[];
-    } }).tlsSettings;
+    applyPresetSecrets(row, {
+      certFile: '/c/fullchain.pem',
+      keyFile: '/c/privkey.pem',
+      domain: 'my.host',
+    });
+    const tls = (
+      row.streamSettings as {
+        tlsSettings: {
+          serverName: string;
+          certificates: { certificateFile: string; keyFile: string }[];
+        };
+      }
+    ).tlsSettings;
     expect(tls.serverName).toBe('my.host');
     expect(tls.certificates[0].certificateFile).toBe('/c/fullchain.pem');
     expect(tls.certificates[0].keyFile).toBe('/c/privkey.pem');
@@ -124,4 +133,3 @@ describe('inbound presets', () => {
     });
   }
 });
-

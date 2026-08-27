@@ -4173,6 +4173,102 @@
         }
       }
     },
+    "/panel/api/inbounds/{id}/orphanCount": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Count clients that would become unattached if this inbound were deleted. Used by the delete confirmation before optionally purging orphaned clients.",
+        "operationId": "get_panel_api_inbounds_id_orphanCount",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": 3
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/orphanCountBatch": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Count clients that would become unattached if the selected inbounds were deleted together. Used by bulk delete confirmation before optionally purging orphaned clients.",
+        "operationId": "post_panel_api_inbounds_orphanCountBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "ids": [
+                  1,
+                  2,
+                  3
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": 5
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/inbounds/update/{id}": {
       "post": {
         "tags": [
@@ -5268,6 +5364,40 @@
                 "example": {
                   "success": true,
                   "obj": "550e8400-e29b-41d4-a716-446655440000"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/getCommonSubId": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Return the shared subscription ID used by one-click inbound templates. Lazily creates and stores it on first use.",
+        "operationId": "get_panel_api_server_getCommonSubId",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": "abcd1234efgh5678"
                 }
               }
             }
