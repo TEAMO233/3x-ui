@@ -6,15 +6,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Fourgetu/3x-ui/releases"><img src="https://img.shields.io/github/v/release/Fourgetu/3x-ui" alt="版本"></a>
-  <a href="https://github.com/Fourgetu/3x-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/Fourgetu/3x-ui/release.yml.svg" alt="构建"></a>
-  <a href="https://github.com/Fourgetu/3x-ui/releases/latest"><img src="https://img.shields.io/github/downloads/Fourgetu/3x-ui/total.svg" alt="下载量"></a>
+  <a href="https://github.com/TEAMO233/3x-ui/releases"><img src="https://img.shields.io/github/v/release/TEAMO233/3x-ui" alt="版本"></a>
+  <a href="https://github.com/TEAMO233/3x-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/TEAMO233/3x-ui/release.yml.svg" alt="构建"></a>
+  <a href="https://github.com/TEAMO233/3x-ui/releases/latest"><img src="https://img.shields.io/github/downloads/TEAMO233/3x-ui/total.svg" alt="下载量"></a>
   <a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img src="https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true" alt="许可证"></a>
 </p>
 
-# Fourgetu 3X-UI
+# TEAMO233 3X-UI
 
-这是基于 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) 持续同步的中文增强版 3X-UI，用于管理 [Xray-core](https://github.com/XTLS/Xray-core) 服务器。项目保留官方核心功能，并加入了推荐协议模板、中转配置、多服务器部署、节点识别和二维码等实用功能。
+这是基于 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) 并整合 Fourgetu 中文增强功能的 TEAMO233 版 3X-UI，用于管理 [Xray-core](https://github.com/XTLS/Xray-core) 服务器。项目保留官方核心功能，并加入了推荐协议模板、中转配置、多服务器部署、节点识别和二维码等实用功能。
 
 > [!IMPORTANT]
 > 本项目仅供个人学习和使用。请遵守当地法律法规，不要将其用于违法用途或未经授权的网络访问。
@@ -59,8 +59,8 @@
 
 ### 中文化与版本同步
 
-- 提供中文安装脚本 `install-cn.sh` 和中文管理菜单 `x-ui-cn.sh`。
-- 自动同步本仓库最新发布版本的安装包和官方脚本。
+- 安装脚本和管理菜单默认使用 `TEAMO233/3x-ui` 的发布包和脚本。
+- 支持通过 `XUI_REPO`、`XUI_BRANCH` 等环境变量覆盖发布源，便于测试其他 fork。
 - 官方功能与本分支功能发生冲突时，优先保留官方实现。
 
 ## 官方基础功能
@@ -79,13 +79,13 @@
 
 ## 快速开始
 
-### 中文版安装
+### TEAMO233 版安装
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Fourgetu/3x-ui-cn-installer/main/install-cn.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/TEAMO233/3x-ui/main/install.sh)
 ```
 
-安装完成后运行以下命令打开中文管理菜单：
+安装完成后运行以下命令打开管理菜单：
 
 ```bash
 x-ui
@@ -98,9 +98,9 @@ x-ui update
 x-ui version
 ```
 
-也可以重新执行中文安装命令进行覆盖安装。覆盖安装前建议先备份 `/etc/x-ui` 和 `/usr/local/x-ui`。
+也可以重新执行安装命令进行覆盖安装。覆盖安装前建议先备份 `/etc/x-ui` 和 `/usr/local/x-ui`。
 
-当前稳定版本：[`v3.7.0-fourgetu.2`](https://github.com/Fourgetu/3x-ui/releases/tag/v3.7.0-fourgetu.2)
+当前稳定版本：以 [TEAMO233/3x-ui Releases](https://github.com/TEAMO233/3x-ui/releases/latest) 为准。
 
 ## 支持的平台
 

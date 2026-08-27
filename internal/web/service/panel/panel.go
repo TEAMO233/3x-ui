@@ -40,8 +40,9 @@ type PanelUpdateInfo struct {
 }
 
 const (
-	panelUpdaterURL      = "https://raw.githubusercontent.com/MHSanaei/3x-ui/main/update.sh"
-	maxPanelUpdaterBytes = 2 << 20
+	defaultPanelUpdateRepo   = "TEAMO233/3x-ui"
+	defaultPanelUpdateBranch = "main"
+	maxPanelUpdaterBytes     = 2 << 20
 	// devReleaseTag is the fixed-tag rolling pre-release the CI force-moves to the
 	// newest main commit; the dev update channel installs from it.
 	devReleaseTag = "dev-latest"
@@ -50,6 +51,43 @@ const (
 	updateStateSuccess = "success"
 	updateStateFailed  = "failed"
 )
+
+func panelUpdateRepo() string {
+	if repo := strings.TrimSpace(os.Getenv("XUI_REPO")); repo != "" {
+		return repo
+	}
+	return defaultPanelUpdateRepo
+}
+
+func panelUpdateBranch() string {
+	if branch := strings.TrimSpace(os.Getenv("XUI_BRANCH")); branch != "" {
+		return branch
+	}
+	return defaultPanelUpdateBranch
+}
+
+func panelUpdaterURL() string {
+	if url := strings.TrimSpace(os.Getenv("XUI_UPDATER_URL")); url != "" {
+		return url
+	}
+	return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/update.sh", panelUpdateRepo(), panelUpdateBranch())
+}
+
+func panelReleaseAPIURL(tag string) string {
+	if tag == "" {
+		if url := strings.TrimSpace(os.Getenv("XUI_API_RELEASE_LATEST")); url != "" {
+			return url
+		}
+	}
+	base := strings.TrimRight(strings.TrimSpace(os.Getenv("XUI_API_RELEASE_BASE")), "/")
+	if base == "" {
+		base = "https://api.github.com/repos/" + panelUpdateRepo() + "/releases"
+	}
+	if tag == "" {
+		return base + "/latest"
+	}
+	return base + "/tags/" + tag
+}
 
 // PanelUpdateStatus reports the outcome of the most recently launched panel
 // self-update. RunID lets the caller confirm this status belongs to the
@@ -303,11 +341,14 @@ func (s *PanelService) startUpdate(useDev bool) (int64, error) {
 	return runID, nil
 }
 
-// updateProxyEnvVars forwards ambient proxy env vars to systemd-run's child,
-// which (unlike the bash fallback) inherits nothing but --setenv.
+// updateProxyEnvVars forwards ambient proxy and update-source env vars to
+// systemd-run's child, which (unlike the bash fallback) inherits nothing but --setenv.
 func updateProxyEnvVars() []string {
 	var out []string
-	for _, key := range []string{"https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY", "http_proxy", "HTTP_PROXY", "no_proxy", "NO_PROXY"} {
+	for _, key := range []string{
+		"https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY", "http_proxy", "HTTP_PROXY", "no_proxy", "NO_PROXY",
+		"XUI_REPO", "XUI_BRANCH", "XUI_RELEASE_BASE", "XUI_API_RELEASE_LATEST", "XUI_API_RELEASE_BASE", "XUI_RAW_BASE", "XUI_UPDATER_URL",
+	} {
 		if v := os.Getenv(key); v != "" {
 			out = append(out, key+"="+v)
 		}
@@ -373,7 +414,7 @@ func releaseUpdateSlot() {
 
 func downloadPanelUpdater() (string, error) {
 	client := (&service.SettingService{}).NewProxiedHTTPClient(15 * time.Second)
-	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, panelUpdaterURL, nil)
+	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, panelUpdaterURL(), nil)
 	if reqErr != nil {
 		return "", fmt.Errorf("download panel updater: %w", reqErr)
 	}
@@ -430,10 +471,7 @@ func fetchLatestPanelVersion() (string, error) {
 // fetchPanelRelease fetches a release from GitHub. An empty tag resolves the
 // latest stable release; a non-empty tag (e.g. dev-latest) resolves that tag.
 func fetchPanelRelease(tag string) (*service.Release, error) {
-	url := "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest"
-	if tag != "" {
-		url = "https://api.github.com/repos/MHSanaei/3x-ui/releases/tags/" + tag
-	}
+	url := panelReleaseAPIURL(tag)
 	client := (&service.SettingService{}).NewProxiedHTTPClient(10 * time.Second)
 	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if reqErr != nil {

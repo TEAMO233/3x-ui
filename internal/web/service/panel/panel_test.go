@@ -54,7 +54,10 @@ func TestShellQuote(t *testing.T) {
 // TestUpdateProxyEnvVars covers the bug this function fixes: ambient proxy
 // vars must reach update.sh's systemd-run child, which inherits nothing.
 func TestUpdateProxyEnvVars(t *testing.T) {
-	allKeys := []string{"https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY", "http_proxy", "HTTP_PROXY", "no_proxy", "NO_PROXY"}
+	allKeys := []string{
+		"https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY", "http_proxy", "HTTP_PROXY", "no_proxy", "NO_PROXY",
+		"XUI_REPO", "XUI_BRANCH", "XUI_RELEASE_BASE", "XUI_API_RELEASE_LATEST", "XUI_API_RELEASE_BASE", "XUI_RAW_BASE", "XUI_UPDATER_URL",
+	}
 	clearAll := func(t *testing.T) {
 		t.Helper()
 		for _, key := range allKeys {
@@ -90,6 +93,71 @@ func TestUpdateProxyEnvVars(t *testing.T) {
 			t.Fatalf("updateProxyEnvVars() = %v, want %v", got, want)
 		}
 	})
+
+	t.Run("forwards update source overrides", func(t *testing.T) {
+		clearAll(t)
+		t.Setenv("XUI_REPO", "owner/fork")
+		t.Setenv("XUI_BRANCH", "release")
+		t.Setenv("XUI_UPDATER_URL", "https://example.test/update.sh")
+		got := updateProxyEnvVars()
+		want := []string{
+			"XUI_REPO=owner/fork",
+			"XUI_BRANCH=release",
+			"XUI_UPDATER_URL=https://example.test/update.sh",
+		}
+		if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
+			t.Fatalf("updateProxyEnvVars() = %v, want %v", got, want)
+		}
+	})
+}
+
+func TestPanelUpdateSourceDefaults(t *testing.T) {
+	t.Setenv("XUI_REPO", "")
+	t.Setenv("XUI_BRANCH", "")
+	t.Setenv("XUI_UPDATER_URL", "")
+	t.Setenv("XUI_API_RELEASE_LATEST", "")
+	t.Setenv("XUI_API_RELEASE_BASE", "")
+
+	if got, want := panelUpdaterURL(), "https://raw.githubusercontent.com/TEAMO233/3x-ui/main/update.sh"; got != want {
+		t.Fatalf("panelUpdaterURL() = %q, want %q", got, want)
+	}
+	if got, want := panelReleaseAPIURL(""), "https://api.github.com/repos/TEAMO233/3x-ui/releases/latest"; got != want {
+		t.Fatalf("panelReleaseAPIURL(empty) = %q, want %q", got, want)
+	}
+	if got, want := panelReleaseAPIURL("dev-latest"), "https://api.github.com/repos/TEAMO233/3x-ui/releases/tags/dev-latest"; got != want {
+		t.Fatalf("panelReleaseAPIURL(tag) = %q, want %q", got, want)
+	}
+}
+
+func TestPanelUpdateSourceOverrides(t *testing.T) {
+	t.Setenv("XUI_REPO", "owner/fork")
+	t.Setenv("XUI_BRANCH", "release")
+	t.Setenv("XUI_UPDATER_URL", "")
+	t.Setenv("XUI_API_RELEASE_LATEST", "")
+	t.Setenv("XUI_API_RELEASE_BASE", "")
+
+	if got, want := panelUpdaterURL(), "https://raw.githubusercontent.com/owner/fork/release/update.sh"; got != want {
+		t.Fatalf("panelUpdaterURL() = %q, want %q", got, want)
+	}
+	if got, want := panelReleaseAPIURL(""), "https://api.github.com/repos/owner/fork/releases/latest"; got != want {
+		t.Fatalf("panelReleaseAPIURL(empty) = %q, want %q", got, want)
+	}
+	if got, want := panelReleaseAPIURL("v1.2.3"), "https://api.github.com/repos/owner/fork/releases/tags/v1.2.3"; got != want {
+		t.Fatalf("panelReleaseAPIURL(tag) = %q, want %q", got, want)
+	}
+
+	t.Setenv("XUI_UPDATER_URL", "https://example.test/update.sh")
+	t.Setenv("XUI_API_RELEASE_LATEST", "https://example.test/releases/latest")
+	t.Setenv("XUI_API_RELEASE_BASE", "https://example.test/releases/")
+	if got, want := panelUpdaterURL(), "https://example.test/update.sh"; got != want {
+		t.Fatalf("panelUpdaterURL(custom) = %q, want %q", got, want)
+	}
+	if got, want := panelReleaseAPIURL(""), "https://example.test/releases/latest"; got != want {
+		t.Fatalf("panelReleaseAPIURL(custom latest) = %q, want %q", got, want)
+	}
+	if got, want := panelReleaseAPIURL("dev-latest"), "https://example.test/releases/tags/dev-latest"; got != want {
+		t.Fatalf("panelReleaseAPIURL(custom tag) = %q, want %q", got, want)
+	}
 }
 
 func TestExtractReleaseCommit(t *testing.T) {
