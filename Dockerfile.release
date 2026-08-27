@@ -1,0 +1,76 @@
+# ========================================================
+# Release-image Dockerfile
+# ========================================================
+# This Dockerfile packages already-built release assets into Docker images.
+# It avoids rebuilding Node + Go + CGO under QEMU for every target platform,
+# which makes multi-arch GHCR publishing much faster and less flaky.
+
+FROM --platform=$BUILDPLATFORM alpine:3.22 AS xui-release
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG XUI_REPO=TEAMO233/3x-ui
+ARG XUI_VERSION
+WORKDIR /tmp
+
+RUN apk add --no-cache ca-certificates curl tar
+COPY internal/config/version /tmp/xui-version
+
+RUN set -eux; \
+    version="${XUI_VERSION:-$(cat /tmp/xui-version)}"; \
+    case "$version" in v*) tag="$version" ;; *) tag="v$version" ;; esac; \
+    case "${TARGETARCH}/${TARGETVARIANT:-}" in \
+      amd64/*|amd64/) platform="amd64" ;; \
+      386/*|386/) platform="386" ;; \
+      arm64/*|arm64/) platform="arm64" ;; \
+      arm/v7) platform="armv7" ;; \
+      arm/v6) platform="armv6" ;; \
+      *) echo "Unsupported Docker target: ${TARGETARCH}/${TARGETVARIANT:-}" >&2; exit 1 ;; \
+    esac; \
+    url="https://github.com/${XUI_REPO}/releases/download/${tag}/x-ui-linux-${platform}.tar.gz"; \
+    echo "Downloading ${url}"; \
+    curl -fL --retry 10 --retry-all-errors --retry-delay 6 -o /tmp/x-ui.tar.gz "$url"; \
+    tar -xzf /tmp/x-ui.tar.gz -C /tmp; \
+    test -x /tmp/x-ui/x-ui; \
+    test -f /tmp/x-ui/x-ui.sh
+
+# ========================================================
+# Final Image of 3x-ui
+# ========================================================
+FROM alpine:3.22
+ENV TZ=Asia/Tehran
+WORKDIR /app
+
+RUN apk add --no-cache --update \
+  ca-certificates \
+  tzdata \
+  fail2ban \
+  bash \
+  curl \
+  openssl
+
+COPY --from=xui-release /tmp/x-ui/ /app/
+COPY --from=xui-release /tmp/x-ui/x-ui.sh /usr/bin/x-ui
+COPY DockerEntrypoint.sh /app/
+COPY internal/web/translation /app/internal/web/translation
+
+# Configure fail2ban
+RUN rm -f /etc/fail2ban/jail.d/alpine-ssh.conf \
+  && cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local \
+  && sed -i "s/^\[ssh\]$/&\nenabled = false/" /etc/fail2ban/jail.local \
+  && sed -i "s/^\[sshd\]$/&\nenabled = false/" /etc/fail2ban/jail.local \
+  && sed -i "s/#allowipv6 = auto/allowipv6 = auto/g" /etc/fail2ban/fail2ban.conf
+
+RUN chmod +x \
+  /app/DockerEntrypoint.sh \
+  /app/x-ui \
+  /usr/bin/x-ui
+
+ENV XUI_IN_DOCKER="true"
+ENV XUI_MAIN_FOLDER="/app"
+ENV XUI_ENABLE_FAIL2BAN="true"
+ENV XUI_DB_TYPE=""
+ENV XUI_DB_DSN=""
+EXPOSE 2053
+VOLUME [ "/etc/x-ui" ]
+CMD [ "./x-ui" ]
+ENTRYPOINT [ "/app/DockerEntrypoint.sh" ]
