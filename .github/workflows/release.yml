@@ -2,22 +2,13 @@ name: Release 3X-UI
 
 on:
   workflow_dispatch:
+  # Only main (dev channel) and version tags ship binaries; build any other
+  # branch on demand via workflow_dispatch.
   push:
     branches:
-      - "**"
+      - main
     tags:
       - "v*.*.*"
-    paths:
-      - "**.go"
-      - "go.mod"
-      - "go.sum"
-      - "**.sh"
-      - "frontend/**"
-      - "x-ui.service.debian"
-      - "x-ui.service.arch"
-      - "x-ui.service.rhel"
-      - ".github/workflows/release.yml"
-  pull_request:
     paths:
       - "**.go"
       - "go.mod"
@@ -124,7 +115,7 @@ jobs:
           cd x-ui/bin
 
           # Download dependencies
-          Xray_URL="https://github.com/XTLS/Xray-core/releases/download/v26.7.28/"
+          Xray_URL="https://github.com/XTLS/Xray-core/releases/download/v26.10.10/"
           if [ "${{ matrix.platform }}" == "amd64" ]; then
             fetch ${Xray_URL}Xray-linux-64.zip
             unzip Xray-linux-64.zip
@@ -162,6 +153,19 @@ jobs:
           fetch -O geoip_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat
           fetch -O geosite_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
           mv xray xray-linux-${{ matrix.platform }}
+          # User speed limits require GOST. GOARCH is "arm" for all three ARM
+          # variants; the runtime looks up gost-linux-arm, not gost-linux-armv7.
+          GOST_VER="3.3.0"
+          GOST_PKG="gost_${GOST_VER}_linux_${{ matrix.platform }}.tar.gz"
+          GOST_URL="https://github.com/go-gost/gost/releases/download/v${GOST_VER}"
+          fetch "${GOST_URL}/${GOST_PKG}"
+          fetch -O gost-checksums.txt "${GOST_URL}/checksums.txt"
+          awk -v name="$GOST_PKG" '$2 == name { print; found=1 } END { if (!found) exit 1 }' gost-checksums.txt > gost.sha256
+          sha256sum -c gost.sha256
+          tar -xzf "$GOST_PKG" gost
+          mv gost "gost-linux-${GOARCH}"
+          chmod +x "gost-linux-${GOARCH}"
+          rm -f "$GOST_PKG" gost-checksums.txt gost.sha256
           # mtg-multi (MTProto sidecar) ships prebuilt release binaries whose
           # platform labels match our matrix, so download and unpack the matching
           # archive. Only the platforms the fork publishes are packaged — the tag
@@ -183,13 +187,17 @@ jobs:
           cd ../..
 
       - name: Package
-        run: tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui
+        run: |
+          tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui
+          sha256sum x-ui-linux-${{ matrix.platform }}.tar.gz > x-ui-linux-${{ matrix.platform }}.tar.gz.sha256
 
       - name: Upload files to Artifacts
         uses: actions/upload-artifact@v7
         with:
           name: x-ui-linux-${{ matrix.platform }}
-          path: ./x-ui-linux-${{ matrix.platform }}.tar.gz
+          path: |
+            ./x-ui-linux-${{ matrix.platform }}.tar.gz
+            ./x-ui-linux-${{ matrix.platform }}.tar.gz.sha256
 
       - name: Upload files to GH release
         uses: svenstaro/upload-release-action@v2
@@ -197,8 +205,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
-          file: x-ui-linux-${{ matrix.platform }}.tar.gz
-          asset_name: x-ui-linux-${{ matrix.platform }}.tar.gz
+          file: x-ui-linux-${{ matrix.platform }}.tar.gz*
+          file_glob: true
           overwrite: true
           prerelease: false
 
@@ -283,7 +291,7 @@ jobs:
           cd x-ui\bin
 
           # Download Xray for Windows
-          $Xray_URL = "https://github.com/XTLS/Xray-core/releases/download/v26.7.28/"
+          $Xray_URL = "https://github.com/XTLS/Xray-core/releases/download/v26.10.10/"
           Invoke-WebRequest @retry -Uri "${Xray_URL}Xray-windows-64.zip" -OutFile "Xray-windows-64.zip"
           Expand-Archive -Path "Xray-windows-64.zip" -DestinationPath .
           Remove-Item "Xray-windows-64.zip"
@@ -295,6 +303,28 @@ jobs:
           Invoke-WebRequest @retry -Uri "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat" -OutFile "geoip_RU.dat"
           Invoke-WebRequest @retry -Uri "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat" -OutFile "geosite_RU.dat"
           Rename-Item xray.exe xray-windows-amd64.exe
+
+          $gostVersion = '3.3.0'
+          $gostPackage = "gost_${gostVersion}_windows_amd64.zip"
+          $gostURL = "https://github.com/go-gost/gost/releases/download/v${gostVersion}"
+          Invoke-WebRequest @retry -Uri "$gostURL/$gostPackage" -OutFile $gostPackage
+          Invoke-WebRequest @retry -Uri "$gostURL/checksums.txt" -OutFile 'gost-checksums.txt'
+          $gostChecksums = Get-Content -LiteralPath 'gost-checksums.txt' -Raw
+          $gostMatch = [regex]::Match($gostChecksums, '(?m)^([a-fA-F0-9]{64})\s+' + [regex]::Escape($gostPackage) + '\r?$')
+          if (-not $gostMatch.Success -or (Get-FileHash -LiteralPath $gostPackage -Algorithm SHA256).Hash -ne $gostMatch.Groups[1].Value) {
+            throw 'GOST archive checksum missing or mismatched'
+          }
+          # Extract only the binary, preserving Xray's LICENSE and README files.
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $gostArchive = [IO.Compression.ZipFile]::OpenRead((Join-Path $PWD $gostPackage))
+          try {
+            $gostEntry = $gostArchive.GetEntry('gost.exe')
+            if ($null -eq $gostEntry) { throw 'GOST binary missing from archive' }
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($gostEntry, (Join-Path $PWD 'gost-windows-amd64.exe'))
+          } finally {
+            $gostArchive.Dispose()
+          }
+          Remove-Item -LiteralPath $gostPackage, 'gost-checksums.txt'
 
           # mtg-multi (MTProto sidecar) publishes a prebuilt Windows binary, so
           # download and unpack it instead of compiling. The tag comes from the
@@ -316,12 +346,16 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Path .\x-ui -DestinationPath "x-ui-windows-amd64.zip"
+          $hash = (Get-FileHash x-ui-windows-amd64.zip -Algorithm SHA256).Hash.ToLower()
+          [IO.File]::WriteAllText("$PWD\x-ui-windows-amd64.zip.sha256", "$hash  x-ui-windows-amd64.zip`n")
 
       - name: Upload files to Artifacts
         uses: actions/upload-artifact@v7
         with:
           name: x-ui-windows-amd64
-          path: ./x-ui-windows-amd64.zip
+          path: |
+            ./x-ui-windows-amd64.zip
+            ./x-ui-windows-amd64.zip.sha256
 
       - name: Upload files to GH release
         uses: svenstaro/upload-release-action@v2
@@ -329,8 +363,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
-          file: x-ui-windows-amd64.zip
-          asset_name: x-ui-windows-amd64.zip
+          file: x-ui-windows-amd64.zip*
+          file_glob: true
           overwrite: true
           prerelease: false
 
@@ -398,4 +432,4 @@ jobs:
               --target "${COMMIT}" --title "Dev build ${short}" --notes "${notes}"
           fi
 
-          retry gh release upload dev-latest dev-artifacts/*.tar.gz dev-artifacts/*.zip --clobber
+          retry gh release upload dev-latest dev-artifacts/*.tar.gz dev-artifacts/*.zip dev-artifacts/*.sha256 --clobber

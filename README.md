@@ -10,16 +10,25 @@
   <a href="https://github.com/TEAMO233/3x-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/TEAMO233/3x-ui/release.yml.svg" alt="构建"></a>
   <a href="https://github.com/TEAMO233/3x-ui/releases/latest"><img src="https://img.shields.io/github/downloads/TEAMO233/3x-ui/total.svg" alt="下载量"></a>
   <a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img src="https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true" alt="许可证"></a>
+  <a href="https://pkg.go.dev/github.com/mhsanaei/3x-ui/v3"><img src="https://pkg.go.dev/badge/github.com/mhsanaei/3x-ui/v3.svg" alt="Go Reference"></a>
+  <a href="https://docs.sanaei.dev"><img src="https://img.shields.io/badge/docs-docs.sanaei.dev-22d3ee" alt="Documentation"></a>
 </p>
 
 # TEAMO233 3X-UI
 
-这是基于 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) 并整合 Fourgetu 中文增强功能的 TEAMO233 版 3X-UI，用于管理 [Xray-core](https://github.com/XTLS/Xray-core) 服务器。项目保留官方核心功能，并加入了推荐协议模板、中转配置、多服务器部署、节点识别和二维码等实用功能。
+这是基于 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) 持续同步的中文增强版 3X-UI，用于管理 [Xray-core](https://github.com/XTLS/Xray-core) 服务器。项目保留官方核心功能，并加入了推荐协议模板、中转配置、多服务器部署、节点识别和二维码等实用功能。
 
 > [!IMPORTANT]
 > 本项目仅供个人学习和使用。请遵守当地法律法规，不要将其用于违法用途或未经授权的网络访问。
 
 ## 本分支新增功能
+
+### 用户级上传 / 下载限速
+
+- 对每个客户端在每个入站上分别设置上传、下载 Mbps，保持原有身份绑定和 GOST 转发实现。
+- 支持本机 VLESS、VMess、Trojan 的 TCP/WS/gRPC/HTTPUpgrade/XHTTP 等传输，以及 Shadowsocks TCP/UDP；远程入站需在实际承载该入站的面板设置。
+- 订阅自动使用该客户端的专属限速端口，保留故障恢复、状态展示、删除/解绑后的端口与进程回收。
+- 用户级限速已随 v3.10.0 同步基线保留，并继续由本分支维护。
 
 ### 一键推荐协议模板
 
@@ -59,14 +68,14 @@
 
 ### 中文化与版本同步
 
-- 安装脚本和管理菜单默认使用 `TEAMO233/3x-ui` 的发布包和脚本。
-- 支持通过 `XUI_REPO`、`XUI_BRANCH` 等环境变量覆盖发布源，便于测试其他 fork。
+- 安装脚本和管理菜单默认使用 `TEAMO233/3x-ui` 发布资源；可通过 `XUI_REPO`、`XUI_BRANCH` 覆盖源地址。
+- 安装与升级会校验发布包的 SHA-256，并将脚本固定到对应版本。
 - 官方功能与本分支功能发生冲突时，优先保留官方实现。
 
 ## 官方基础功能
 
-- **多协议入站**：VLESS、VMess、Trojan、Shadowsocks、WireGuard、Hysteria2、HTTP、SOCKS、Dokodemo-door、Tunnel 和 TUN。
-- **现代传输与安全**：TCP、mKCP、WebSocket、gRPC、HTTPUpgrade 和 XHTTP，支持 TLS、XTLS 与 REALITY。
+- **多协议入站**：VLESS、VMess、Trojan、Shadowsocks、WireGuard、AmneziaWG、TUIC、Hysteria2、MTProto、MASQUE、HTTP、SOCKS、Dokodemo-door、Tunnel 和 TUN。
+- **现代传输与安全**：TCP、mKCP、WebSocket、gRPC、HTTPUpgrade、XHTTP、MASQUE 和 XDRIVE，支持 TLS、XTLS 与 REALITY。
 - **回落（Fallback）**：通过 Xray fallback 在同一端口提供多种协议。
 - **按客户端管理**：流量配额、到期时间、IP 限制、在线状态、分享链接、二维码和订阅。
 - **流量统计**：按入站、客户端和出站统计流量，并支持重置。
@@ -91,6 +100,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/TEAMO233/3x-ui/main/install.
 x-ui
 ```
 
+安装指定版本时，将已发布的版本标签作为参数传入安装脚本：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/TEAMO233/3x-ui/main/install.sh) v<release-tag>
+```
+
 ### 更新和查看版本
 
 ```bash
@@ -100,7 +115,15 @@ x-ui version
 
 也可以重新执行安装命令进行覆盖安装。覆盖安装前建议先备份 `/etc/x-ui` 和 `/usr/local/x-ui`。
 
-当前稳定版本：以 [TEAMO233/3x-ui Releases](https://github.com/TEAMO233/3x-ui/releases/latest) 为准。
+Every release asset is published with a `.sha256` sum next to it. Both `install.sh` and the updater verify the archive against that sum and abort on a mismatch.
+
+For full documentation — installation, configuration, operations, and the complete API reference — visit **[docs.sanaei.dev](https://docs.sanaei.dev)**.
+
+当前合并分支基于 Fourgetu 已完成上游同步并验证的 `v3.10.0` 基线；TEAMO233 对应版本尚未在本仓库发布，发布状态以 [Releases](https://github.com/TEAMO233/3x-ui/releases) 为准。
+
+兼容处理和验证结果见 [v3.10.0 同步记录](docs/upstream-v3.10.0-sync.md)。构建要求：Go 1.27.2、Node 26 / npm 11、CGO C 编译器；Xray 使用官方 v26.10.10。
+
+升级时需要同步升级各节点。官方新增 systemd 沙箱：默认限速配置位于允许写入的数据库目录中；如果用 `XUI_GOST_CONFIG_PATH` 指向该目录之外，请将配置所在目录加入本机 `20-local.conf` 的 `ReadWritePaths=`。使用私有 CA 的出站应启用官方的“Use system CA”。
 
 ## 支持的平台
 
@@ -153,6 +176,32 @@ XUI_DB_DSN=postgres://xui:password@127.0.0.1:5432/xui?sslmode=disable
 
 欢迎提交 Issue 和 Pull Request。提交前请阅读[贡献指南](CONTRIBUTING.md)。
 
+## 环境变量
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `XUI_DB_TYPE` | Database backend: `sqlite` or `postgres` | `sqlite` |
+| `XUI_DB_DSN` | PostgreSQL connection string (when `XUI_DB_TYPE=postgres`) | — |
+| `XUI_DB_FOLDER` | Directory for the SQLite database file | `/etc/x-ui` |
+| `XUI_DB_MAX_OPEN_CONNS` | Maximum open connections (PostgreSQL pool) | — |
+| `XUI_DB_MAX_IDLE_CONNS` | Maximum idle connections (PostgreSQL pool) | — |
+| `XUI_INIT_WEB_BASE_PATH` | The initial URI path for the web panel | `/` |
+| `XUI_ENABLE_FAIL2BAN` | Enable Fail2ban-based IP-limit enforcement | `true` |
+| `XUI_LOG_LEVEL` | Log verbosity (`debug`, `info`, `warning`, `error`) | `info` |
+| `XUI_DEBUG` | Enable debug mode | `false` |
+| `XUI_TUNNEL_HEALTH_MONITOR` | Enable the tunnel health monitor (probes a URL and restarts xray after repeated failures; a restart drops all clients) | `false` |
+| `XUI_TUNNEL_HEALTH_PROXY` | Proxy the probe is sent through; point it at a local xray inbound so the probe tests the tunnel (e.g. `socks5://127.0.0.1:1080`). Empty means the probe only checks host connectivity | — |
+| `XUI_TUNNEL_HEALTH_URL` | URL probed for tunnel health | `https://www.cloudflare.com/cdn-cgi/trace` |
+| `XUI_TUNNEL_HEALTH_INTERVAL` | Interval between probes | `30s` |
+| `XUI_TUNNEL_HEALTH_TIMEOUT` | Per-probe timeout | `10s` |
+| `XUI_TUNNEL_HEALTH_FAILURES` | Consecutive failures before a restart is triggered | `3` |
+| `XUI_TUNNEL_HEALTH_COOLDOWN` | Minimum delay between consecutive restarts | `5m` |
+| `NODE_TOKEN_ENCRYPTION` | Encryption at rest for node API tokens: `off`, `migration`, or `required` (note: no `XUI_` prefix) | `off` |
+| `XUI_NODE_TOKEN_KEY_FILE` | JSON keyring (mode `0600`) holding the active key id and its base64 32-byte keys | `/etc/x-ui/node_token_key.json` |
+| `XUI_NODE_TOKEN_KEY` | A single base64 32-byte key, used only when the key file cannot be loaded | — |
+
+The complete list is on the [environment variables reference](https://docs.sanaei.dev/docs/reference/env-vars).
+
 ## 许可证
 
 本项目基于 GPL v3 开源协议发布。
@@ -163,3 +212,44 @@ XUI_DB_DSN=postgres://xui:password@127.0.0.1:5432/xui?sslmode=disable
 - [alireza0](https://github.com/alireza0/)
 
 感谢 [Linux.do](https://linux.do/) 社区。
+
+## Acknowledgment
+
+- [Iran v2ray rules](https://github.com/chocolate4u/Iran-v2ray-rules) (License: **GPL-3.0**): _Enhanced v2ray/xray and v2ray/xray-clients routing rules with built-in Iranian domains and a focus on security and adblocking._
+- [Russia v2ray rules](https://github.com/runetfreedom/russia-v2ray-rules-dat) (License: **GPL-3.0**): _This repository contains automatically updated V2Ray routing rules based on data on blocked domains and addresses in Russia._
+
+## Community Tools
+
+Tools and integrations built by the community around 3x-ui.
+
+- [terraform-provider-3x-ui](https://github.com/batonogov/terraform-provider-threexui) (License: **MIT**): _Manage inbounds, clients, panel settings, and Xray configuration as code with Terraform / OpenTofu._
+- [3X-UI Manager](https://github.com/yukh975/3X-UI-Manager) (License: **MIT**): _Native Android client for 3x-ui — dashboard, inbounds, clients with QR sharing, nodes and multi-panel management. Available on F-Droid._
+
+## Support project
+
+**If this project is helpful to you, you may wish to give it a**:star2:
+
+<a href="https://www.buymeacoffee.com/MHSanaei" target="_blank">
+<img src="./media/default-yellow.png" alt="Buy Me A Coffee" style="height: 70px !important;width: 277px !important;" >
+</a>
+
+</br>
+<a href="https://nowpayments.io/donation/hsanaei" target="_blank" rel="noreferrer noopener">
+   <img src="./media/donation-button-black.svg" alt="Crypto donation button by NOWPayments">
+</a>
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=mhsanaei%2F3x-ui&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=mhsanaei/3x-ui&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=mhsanaei/3x-ui&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=mhsanaei/3x-ui&type=date&legend=top-left" />
+ </picture>
+</a>
+
+<p align="center">
+ <a href="https://www.star-history.com/mhsanaei/3x-ui">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=rank&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=rank" /><img alt="Star History Rank" src="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=rank" /></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=trending&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=trending" /><img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=trending" /></picture>
+ </a>
+</p>

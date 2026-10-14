@@ -84,7 +84,14 @@ with a routing rule.
 
 3x-ui can fetch NordVPN (NordLynx/WireGuard) credentials from an access token (or
 accept a private key directly) and list countries/servers, so you can build a
-NordVPN outbound.
+NordVPN outbound. Open **Xray → Outbounds → More → NordVPN**, sign in or save a
+private key, select a server, and add the outbound. You can add several servers;
+each hostname has a unique `nord-<hostname>` tag and cannot be added twice.
+
+**Reset** on an added row keeps its server, tag, peer, and routing references but
+refreshes its embedded private key from the currently stored NordVPN credentials.
+Logout clears only those stored credentials. Existing outbounds continue to use
+their embedded keys; remove unused NordVPN outbounds from the Outbounds list.
 
 ## PIA WireGuard
 
@@ -143,6 +150,20 @@ put specific rules above general ones.
   }
 }
 ```
+
+### Lua scripts
+
+Xray 26.10.10 can hand routing and DNS to Lua. **Basics → Routing Script** takes the
+path of a `.lua` file that defines `HandleRoute` (absolute, or relative to the Xray
+`bin` folder); **DNS → Lua Script** takes one that defines `HandleDNSQuery`, and a
+DNS server's **ID** is the name such a script picks it by.
+
+<Callout type="warn">
+  A routing script replaces **every** routing rule, the panel's own `api` rule
+  included. Send the `api` inbound to the `api` outbound in your script, or traffic
+  statistics and live client changes stop. Xray does not start if the file is missing
+  or fails to load.
+</Callout>
 
 ## Balancers
 

@@ -19,6 +19,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/version"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/global"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
@@ -64,13 +65,6 @@ func panelUpdateBranch() string {
 		return branch
 	}
 	return defaultPanelUpdateBranch
-}
-
-func panelUpdaterURL() string {
-	if url := strings.TrimSpace(os.Getenv("XUI_UPDATER_URL")); url != "" {
-		return url
-	}
-	return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/update.sh", panelUpdateRepo(), panelUpdateBranch())
 }
 
 func panelReleaseAPIURL(tag string) string {
@@ -271,7 +265,15 @@ func (s *PanelService) startUpdate(useDev bool) (int64, error) {
 		return 0, fmt.Errorf("bash is required to run the panel updater: %w", err)
 	}
 
-	scriptPath, err := downloadPanelUpdater()
+	updateTag := devReleaseTag
+	if !useDev {
+		var err error
+		updateTag, err = fetchLatestPanelVersion()
+		if err != nil {
+			return 0, err
+		}
+	}
+	scriptPath, err := downloadPanelUpdater(updateTag)
 	if err != nil {
 		return 0, err
 	}
@@ -279,10 +281,6 @@ func (s *PanelService) startUpdate(useDev bool) (int64, error) {
 	statusFile := config.GetUpdateStatusFilePath()
 
 	mainFolder, serviceFolder := resolveUpdateFolders()
-	updateTag := ""
-	if useDev {
-		updateTag = devReleaseTag
-	}
 	updateScript := fmt.Sprintf("set -e; trap 'rm -f %s' EXIT; %s %s", shellQuote(scriptPath), shellQuote(bash), shellQuote(scriptPath))
 	runIDEnv := "XUI_UPDATE_RUN_ID=" + strconv.FormatInt(runID, 10)
 	statusFileEnv := "XUI_UPDATE_STATUS_FILE=" + statusFile
@@ -341,8 +339,8 @@ func (s *PanelService) startUpdate(useDev bool) (int64, error) {
 	return runID, nil
 }
 
-// updateProxyEnvVars forwards ambient proxy and update-source env vars to
-// systemd-run's child, which (unlike the bash fallback) inherits nothing but --setenv.
+// updateProxyEnvVars forwards ambient proxy env vars to systemd-run's child,
+// which (unlike the bash fallback) inherits nothing but --setenv.
 func updateProxyEnvVars() []string {
 	var out []string
 	for _, key := range []string{
@@ -412,9 +410,30 @@ func releaseUpdateSlot() {
 	updateMu.Unlock()
 }
 
-func downloadPanelUpdater() (string, error) {
+// Use the selected release's updater: main may still contain an older upstream
+// downloader when the fork publishes a release from a synchronization branch.
+func panelUpdaterURL(tag string) (string, error) {
+	if url := strings.TrimSpace(os.Getenv("XUI_UPDATER_URL")); url != "" {
+		return url, nil
+	}
+	if tag == devReleaseTag {
+		if rawBase := strings.TrimRight(strings.TrimSpace(os.Getenv("XUI_RAW_BASE")), "/"); rawBase != "" {
+			return rawBase + "/update.sh", nil
+		}
+		tag = panelUpdateBranch()
+	} else if !regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9-]+\.[0-9]+)?$`).MatchString(tag) {
+		return "", fmt.Errorf("unsupported panel release tag: %q", tag)
+	}
+	return "https://raw.githubusercontent.com/" + panelUpdateRepo() + "/" + tag + "/update.sh", nil
+}
+
+func downloadPanelUpdater(tag string) (string, error) {
+	updaterURL, err := panelUpdaterURL(tag)
+	if err != nil {
+		return "", err
+	}
 	client := (&service.SettingService{}).NewProxiedHTTPClient(15 * time.Second)
-	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, panelUpdaterURL(), nil)
+	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, updaterURL, nil)
 	if reqErr != nil {
 		return "", fmt.Errorf("download panel updater: %w", reqErr)
 	}
@@ -560,48 +579,11 @@ func resolveUpdateFolders() (string, string) {
 }
 
 func isNewerVersion(latest string, current string) bool {
-	cmp, ok := compareVersionStrings(latest, current)
+	cmp, ok := version.Compare(latest, current)
 	if !ok {
-		return normalizeVersionTag(latest) != normalizeVersionTag(current)
+		return version.Normalize(latest) != version.Normalize(current)
 	}
 	return cmp > 0
-}
-
-func compareVersionStrings(a string, b string) (int, bool) {
-	aParts, okA := parseVersionParts(a)
-	bParts, okB := parseVersionParts(b)
-	if !okA || !okB {
-		return 0, false
-	}
-	for i := range len(aParts) {
-		if aParts[i] > bParts[i] {
-			return 1, true
-		}
-		if aParts[i] < bParts[i] {
-			return -1, true
-		}
-	}
-	return 0, true
-}
-
-func parseVersionParts(version string) ([3]int, bool) {
-	var result [3]int
-	parts := strings.Split(normalizeVersionTag(version), ".")
-	if len(parts) != 3 {
-		return result, false
-	}
-	for i, part := range parts {
-		n, err := strconv.Atoi(part)
-		if err != nil {
-			return result, false
-		}
-		result[i] = n
-	}
-	return result, true
-}
-
-func normalizeVersionTag(version string) string {
-	return strings.TrimPrefix(strings.TrimSpace(version), "v")
 }
 
 func shellQuote(value string) string {
