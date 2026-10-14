@@ -409,6 +409,7 @@ func (m *Manager) reloadOrStartLocked() error {
 		}
 		m.expectedExit = false
 	}
+	// The manager owns this long-lived process and terminates it in StopAll.
 	cmd := exec.CommandContext(context.Background(), BinaryPath(), "-C", ConfigPath(), "-R", "5s")
 	cmd.Stdout = &gostLogWriter{}
 	cmd.Stderr = &gostLogWriter{}
@@ -506,10 +507,9 @@ func (m *Manager) Status() Status {
 	installed := false
 	if stat, err := os.Stat(BinaryPath()); err == nil && !stat.IsDir() {
 		installed = true
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		out, runErr := exec.CommandContext(ctx, BinaryPath(), "-V").CombinedOutput()
-		cancel()
-		if runErr == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if out, runErr := exec.CommandContext(ctx, BinaryPath(), "-V").CombinedOutput(); runErr == nil {
 			version = strings.TrimSpace(strings.Split(string(out), "\n")[0])
 		}
 	}
@@ -529,20 +529,23 @@ func (m *Manager) Status() Status {
 
 func verifyListeners(routes []DesiredRoute) error {
 	deadline := time.Now().Add(10 * time.Second)
-	listenConfig := net.ListenConfig{}
-	dialer := net.Dialer{Timeout: 500 * time.Millisecond}
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
 	for _, route := range routes {
 		for _, network := range route.Networks {
 			for {
+				if ctx.Err() != nil {
+					return fmt.Errorf("GOST %s listener did not bind port %d", network, route.ExternalPort)
+				}
 				var ok bool
 				if network == "udp" {
-					conn, err := listenConfig.ListenPacket(context.Background(), "udp4", "127.0.0.1:"+strconv.Itoa(route.ExternalPort))
+					conn, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp4", "127.0.0.1:"+strconv.Itoa(route.ExternalPort))
 					ok = err != nil
 					if conn != nil {
 						_ = conn.Close()
 					}
 				} else {
-					conn, err := dialer.DialContext(context.Background(), "tcp", "127.0.0.1:"+strconv.Itoa(route.ExternalPort))
+					conn, err := (&net.Dialer{Timeout: 500 * time.Millisecond}).DialContext(ctx, "tcp", "127.0.0.1:"+strconv.Itoa(route.ExternalPort))
 					ok = err == nil
 					if conn != nil {
 						_ = conn.Close()

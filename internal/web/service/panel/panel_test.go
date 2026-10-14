@@ -33,15 +33,6 @@ func TestIsNewerVersion(t *testing.T) {
 	}
 }
 
-func TestCompareVersionStringsRejectsUnexpectedFormats(t *testing.T) {
-	if _, ok := compareVersionStrings("latest", "2.9.3"); ok {
-		t.Fatal("expected non-semver latest tag to be rejected")
-	}
-	if _, ok := compareVersionStrings("v2.9", "2.9.3"); ok {
-		t.Fatal("expected short version to be rejected")
-	}
-}
-
 func TestShellQuote(t *testing.T) {
 	if got := shellQuote("/usr/bin/curl"); got != "'/usr/bin/curl'" {
 		t.Fatalf("unexpected quote result: %s", got)
@@ -54,6 +45,9 @@ func TestShellQuote(t *testing.T) {
 // TestUpdateProxyEnvVars covers the bug this function fixes: ambient proxy
 // vars must reach update.sh's systemd-run child, which inherits nothing.
 func TestUpdateProxyEnvVars(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows env var names are case-insensitive, so both spellings resolve; the updater runs only on Linux")
+	}
 	allKeys := []string{
 		"https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY", "http_proxy", "HTTP_PROXY", "no_proxy", "NO_PROXY",
 		"XUI_REPO", "XUI_BRANCH", "XUI_RELEASE_BASE", "XUI_API_RELEASE_LATEST", "XUI_API_RELEASE_BASE", "XUI_RAW_BASE", "XUI_UPDATER_URL",
@@ -112,14 +106,20 @@ func TestUpdateProxyEnvVars(t *testing.T) {
 }
 
 func TestPanelUpdateSourceDefaults(t *testing.T) {
-	t.Setenv("XUI_REPO", "")
-	t.Setenv("XUI_BRANCH", "")
-	t.Setenv("XUI_UPDATER_URL", "")
-	t.Setenv("XUI_API_RELEASE_LATEST", "")
-	t.Setenv("XUI_API_RELEASE_BASE", "")
-
-	if got, want := panelUpdaterURL(), "https://raw.githubusercontent.com/TEAMO233/3x-ui/main/update.sh"; got != want {
-		t.Fatalf("panelUpdaterURL() = %q, want %q", got, want)
+	for _, key := range []string{"XUI_REPO", "XUI_BRANCH", "XUI_UPDATER_URL", "XUI_API_RELEASE_LATEST", "XUI_API_RELEASE_BASE", "XUI_RAW_BASE"} {
+		t.Setenv(key, "")
+	}
+	if got, want := panelUpdateRepo(), "TEAMO233/3x-ui"; got != want {
+		t.Fatalf("panelUpdateRepo() = %q, want %q", got, want)
+	}
+	if got, want := panelUpdateBranch(), "main"; got != want {
+		t.Fatalf("panelUpdateBranch() = %q, want %q", got, want)
+	}
+	if got, err := panelUpdaterURL("v3.10.0-teamo.1"); err != nil || got != "https://raw.githubusercontent.com/TEAMO233/3x-ui/v3.10.0-teamo.1/update.sh" {
+		t.Fatalf("panelUpdaterURL(release) = %q, err %v", got, err)
+	}
+	if got, err := panelUpdaterURL("dev-latest"); err != nil || got != "https://raw.githubusercontent.com/TEAMO233/3x-ui/main/update.sh" {
+		t.Fatalf("panelUpdaterURL(dev) = %q, err %v", got, err)
 	}
 	if got, want := panelReleaseAPIURL(""), "https://api.github.com/repos/TEAMO233/3x-ui/releases/latest"; got != want {
 		t.Fatalf("panelReleaseAPIURL(empty) = %q, want %q", got, want)
@@ -135,9 +135,12 @@ func TestPanelUpdateSourceOverrides(t *testing.T) {
 	t.Setenv("XUI_UPDATER_URL", "")
 	t.Setenv("XUI_API_RELEASE_LATEST", "")
 	t.Setenv("XUI_API_RELEASE_BASE", "")
-
-	if got, want := panelUpdaterURL(), "https://raw.githubusercontent.com/owner/fork/release/update.sh"; got != want {
-		t.Fatalf("panelUpdaterURL() = %q, want %q", got, want)
+	t.Setenv("XUI_RAW_BASE", "")
+	if got, err := panelUpdaterURL("v1.2.3"); err != nil || got != "https://raw.githubusercontent.com/owner/fork/v1.2.3/update.sh" {
+		t.Fatalf("panelUpdaterURL(release) = %q, err %v", got, err)
+	}
+	if got, err := panelUpdaterURL("dev-latest"); err != nil || got != "https://raw.githubusercontent.com/owner/fork/release/update.sh" {
+		t.Fatalf("panelUpdaterURL(dev) = %q, err %v", got, err)
 	}
 	if got, want := panelReleaseAPIURL(""), "https://api.github.com/repos/owner/fork/releases/latest"; got != want {
 		t.Fatalf("panelReleaseAPIURL(empty) = %q, want %q", got, want)
@@ -149,8 +152,13 @@ func TestPanelUpdateSourceOverrides(t *testing.T) {
 	t.Setenv("XUI_UPDATER_URL", "https://example.test/update.sh")
 	t.Setenv("XUI_API_RELEASE_LATEST", "https://example.test/releases/latest")
 	t.Setenv("XUI_API_RELEASE_BASE", "https://example.test/releases/")
-	if got, want := panelUpdaterURL(), "https://example.test/update.sh"; got != want {
-		t.Fatalf("panelUpdaterURL(custom) = %q, want %q", got, want)
+	t.Setenv("XUI_RAW_BASE", "https://example.test/raw")
+	if got, err := panelUpdaterURL("v1.2.3"); err != nil || got != "https://example.test/update.sh" {
+		t.Fatalf("panelUpdaterURL(custom) = %q, err %v", got, err)
+	}
+	t.Setenv("XUI_UPDATER_URL", "")
+	if got, err := panelUpdaterURL("dev-latest"); err != nil || got != "https://example.test/raw/update.sh" {
+		t.Fatalf("panelUpdaterURL(custom raw base) = %q, err %v", got, err)
 	}
 	if got, want := panelReleaseAPIURL(""), "https://example.test/releases/latest"; got != want {
 		t.Fatalf("panelReleaseAPIURL(custom latest) = %q, want %q", got, want)

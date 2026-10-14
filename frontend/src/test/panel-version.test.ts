@@ -4,6 +4,12 @@ import { formatPanelVersion, isPanelUpdateAvailable } from '@/lib/panel-version'
 
 // Parity with web/service/panel.go isNewerVersion.
 describe('isPanelUpdateAvailable', () => {
+  it('orders Fourgetu revisions without suggesting a downgrade', () => {
+    expect(isPanelUpdateAvailable('v3.8.5-fourgetu.1', '3.9.0-fourgetu.1')).toBe(false);
+    expect(isPanelUpdateAvailable('v3.9.0-fourgetu.1', '3.9.0-fourgetu.1')).toBe(false);
+    expect(isPanelUpdateAvailable('v3.9.0-fourgetu.10', '3.9.0-fourgetu.2')).toBe(true);
+    expect(isPanelUpdateAvailable('v3.9.0-fourgetu.1', '3.8.5')).toBe(true);
+  });
   it('flags a strictly newer latest', () => {
     expect(isPanelUpdateAvailable('2.6.5', '2.6.4')).toBe(true);
     expect(isPanelUpdateAvailable('v2.7.0', 'v2.6.9')).toBe(true);
@@ -29,6 +35,13 @@ describe('isPanelUpdateAvailable', () => {
   it('falls back to string inequality for non-semver tags', () => {
     expect(isPanelUpdateAvailable('nightly-2', 'nightly-1')).toBe(true);
     expect(isPanelUpdateAvailable('nightly-1', 'nightly-1')).toBe(false);
+  });
+
+  it('compares dev builds by commit and never across channels', () => {
+    expect(isPanelUpdateAvailable('dev+1a2b3c4d', 'dev+0f0f0f0f')).toBe(true);
+    expect(isPanelUpdateAvailable('dev+1a2b3c4d', 'dev+1a2b3c4d')).toBe(false);
+    expect(isPanelUpdateAvailable('v3.5.0', 'dev+1a2b3c4d')).toBe(false);
+    expect(isPanelUpdateAvailable('dev+1a2b3c4d', '3.5.0')).toBe(false);
   });
 });
 
